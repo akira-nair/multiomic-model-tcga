@@ -27,8 +27,9 @@ def reorganize_data(origin_path: str, sample_sheet_path: str, destination_path: 
     ## In the new directory, add folders for each case
     # Read cases
     sample_data = pd.read_csv(sample_sheet_path, sep = "\t")
+    modalities = get_modalities(sample_data)
+    cases = get_cases(sample_data)
     print("Adding case folders.")
-    cases = []
     for case in cases:
         path = destination_path + "/"+ case
         print("Creating path", path)
@@ -41,25 +42,16 @@ def reorganize_data(origin_path: str, sample_sheet_path: str, destination_path: 
             count += 1
             print("Successfully created directory %s " % path)
 
+def get_modalities(sample_data):
+    return
+
+def get_cases(sample_data):
+    return
+
 def mk_modalities_folders(path, modalities):
-    count = 0
-    dna_methylation_subpath = path + "/dna_methylation"
-    cnv_subpath = path + "/cnv"
-    gene_exp_subpath = path + "/gene_expression"
-    images_subpath = path + "/images"
-    other_subpath = path + "/other"
-    try:
-        os.mkdir(dna_methylation_subpath)
-        os.mkdir(cnv_subpath)
-        os.mkdir(gene_exp_subpath)
-        os.mkdir(images_subpath)
-        os.mkdir(other_subpath)
-    except OSError:
-        print("Creation of a subdirectory failed")
-    else:
-        count += 1
-        print("Successfully created subdirectories")
-    print(count)
+    for modality in modalities:
+        p = os.join(path, modality)
+        os.mkdir(p)
 
 
 # dbc = DataByCases(patient_tab_path="/users/anair27/data/anair27/data_original/clinical.tsv", sample_sheet_path="/users/anair27/data/anair27/data_original/luad_sample_sheet_09_22.tsv")
