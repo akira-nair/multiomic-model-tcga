@@ -14,12 +14,12 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 
 # FIXED HYPERPARAMETERS
-EPOCHS_UNSUPERVISED = 100
+EPOCHS_UNSUPERVISED = 200
 HIDDEN_DIM = 512
-LATENT_DIMS = [8]
+LATENT_DIMS = [8, 32, 128]
 LEARNING_RATE_UNSUPERVISED = 0.001
-EPOCHS_SUPERVISED = 50
-LEARNING_RATE_SUPERVISED = 0.0001
+EPOCHS_SUPERVISED = 100
+LEARNING_RATE_SUPERVISED = 0.00001
 # Modalities
 CLINICAL = "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_clinical_data.csv"
 CNV = "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_cnv_data.csv"
@@ -52,16 +52,16 @@ for LATENT_DIM in LATENT_DIMS:
     x_test_vae_embed = vae.get_embedding(x_test)
     # unimodal model
     tf.keras.backend.clear_session()
-    model_on_vae = um.create_model(x_train = x_train_vae_embed, y_train = y_train, n_epochs = EPOCHS_SUPERVISED, batch_size = None, lr = LEARNING_RATE_SUPERVISED, n_hidden = 1, dim_hidden = LATENT_DIM / 2)
-    um.plot_confusion(model_on_vae, x_test_vae_embed, y_test, filepath = f'/users/anair27/data/anair27/singh-lab-TCGA-project/multiomic-model-tcga/__plots/RNA_SEQ_CM_MODEL_{LATENT_DIM}dim.png')
+    model_on_vae, _ = um.create_model(x_train = x_train_vae_embed, y_train = y_train, n_epochs = EPOCHS_SUPERVISED, batch_size = None, lr = LEARNING_RATE_SUPERVISED, n_hidden = 1, dim_hidden = LATENT_DIM / 2)
+    um.plot_confusion(model_on_vae, x_test_vae_embed, y_test, filepath = f'/users/anair27/data/anair27/singh-lab-TCGA-project/multiomic-model-tcga/__plots/RNA_SEQ_CM_MODEL_VAE_{LATENT_DIM}dim.png')
     ## ae
     tf.keras.backend.clear_session()
     ae = um.create_ae(x_train = x_train, latent_dim = LATENT_DIM, epochs= EPOCHS_UNSUPERVISED, lr = LEARNING_RATE_UNSUPERVISED)
     x_train_ae_embed = um.encode_input(ae, x_train)
     x_test_ae_embed = um.encode_input(ae, x_test)
     tf.keras.backend.clear_session()
-    model_on_ae = um.create_model(x_train = x_train_ae_embed, y_train = y_train, n_epochs = EPOCHS_SUPERVISED, batch_size = None, lr = LEARNING_RATE_SUPERVISED, n_hidden = 1, dim_hidden = LATENT_DIM / 2)
-    um.plot_confusion(model_on_ae, x_test_ae_embed, y_test, filepath = f'/users/anair27/data/anair27/singh-lab-TCGA-project/multiomic-model-tcga/__plots/RNA_SEQ_CM_MODEL_{LATENT_DIM}dim.png')
+    model_on_ae, _ = um.create_model(x_train = x_train_ae_embed, y_train = y_train, n_epochs = EPOCHS_SUPERVISED, batch_size = None, lr = LEARNING_RATE_SUPERVISED, n_hidden = 1, dim_hidden = LATENT_DIM / 2)
+    um.plot_confusion(model_on_ae, x_test_ae_embed, y_test, filepath = f'/users/anair27/data/anair27/singh-lab-TCGA-project/multiomic-model-tcga/__plots/RNA_SEQ_CM_MODEL_AE_{LATENT_DIM}dim.png')
     
 
     

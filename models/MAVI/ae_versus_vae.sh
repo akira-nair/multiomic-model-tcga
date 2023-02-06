@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH -p gpu --gres=gpu:1
-#SBATCH --mem=64G
-#SBATCH -t 3:00:00
+#SBATCH --mem=128G
+#SBATCH -t 4:00:00
 #SBATCH -o ae_versus_vae.out
 #SBATCH --mail-type=END,FAIL,TIME_LIMIT,BEGIN
 #SBATCH --mail-user=akira_nair@brown.edu

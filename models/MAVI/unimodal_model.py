@@ -56,13 +56,13 @@ def create_ae(x_train, latent_dim = 128, epochs= 10, lr=0.001):
     autoencoder = Autoencoder(latent_dim)
     optimizer = tf.optimizers.Adam(learning_rate=lr)
     autoencoder.compile(optimizer=optimizer, loss=tf.keras.losses.MeanSquaredError())
-    autoencoder.fit(tf.convert_to_tensor(x_train), tf.convert_to_tensor(x_train),
+    autoencoder.fit(x_train, x_train,
                 epochs=epochs,
                 shuffle=True)
     return autoencoder
 
 def encode_input(autoencoder, x):
-    return pd.DataFrame(autoencoder.encoder(tf.convert_to_tensor(x)).numpy())
+    return autoencoder.encoder.predict(x)
 
 def plot_confusion(model, x_test, y_test, filepath = None):
     score = model.evaluate(x_test, y_test, verbose=0)
