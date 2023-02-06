@@ -35,7 +35,7 @@ def create_model(x_train, y_train, train: bool = True, n_epochs = 50, \
     else:
         return model, None
 
-def create_ae(x_train, x_test, latent_dim = 128, epochs= 10):
+def create_ae(x_train, latent_dim = 128, epochs= 10, lr=0.001):
     class Autoencoder(Model):
       def __init__(self, latent_dim):
         super(Autoencoder, self).__init__()
@@ -54,11 +54,11 @@ def create_ae(x_train, x_test, latent_dim = 128, epochs= 10):
         return decoded
 
     autoencoder = Autoencoder(latent_dim)
-    autoencoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
+    optimizer = tf.optimizers.Adam(learning_rate=lr)
+    autoencoder.compile(optimizer=optimizer, loss=tf.keras.losses.MeanSquaredError())
     autoencoder.fit(tf.convert_to_tensor(x_train), tf.convert_to_tensor(x_train),
                 epochs=epochs,
-                shuffle=True,
-                validation_data=(x_test, x_test))
+                shuffle=True)
     return autoencoder
 
 def encode_input(autoencoder, x):
