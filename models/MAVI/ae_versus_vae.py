@@ -12,11 +12,13 @@ import pandas as pd
 from sklearn.preprocessing import normalize
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
+import os
+import datetime
 
 # FIXED HYPERPARAMETERS
 EPOCHS_UNSUPERVISED = 200
 HIDDEN_DIM = 512
-LATENT_DIMS = [8, 32, 128]
+LATENT_DIMS = [8, 32, 128, 256, 512]
 LEARNING_RATE_UNSUPERVISED = 0.001
 EPOCHS_SUPERVISED = 100
 LEARNING_RATE_SUPERVISED = 0.00001
@@ -25,19 +27,42 @@ CLINICAL = "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_clin
 CNV = "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_cnv_data.csv"
 EPIGENOMIC = "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_epigenomic_data.csv"
 TRANSCRIPTOMIC = "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_transcriptomic_data.csv"
+MODALITY_TESTING = 'TRANSCRIPTOMIC'
+# Make output plot directories 
+OUTPUT_PLOTS = os.path.join('/users/anair27/data/anair27/singh-lab-TCGA-project/multiomic-model-tcga/__plots/', datetime.datetime.now())
+os.mkdir(OUTPUT_PLOTS)
 
-# for RNA-seq data
-clinical_df = pd.read_csv(CLINICAL)
-transcriptomic_df = pd.read_csv(TRANSCRIPTOMIC)
-diagnosis = clinical_df[["vital_status_Dead", "case_id"]]
-data = transcriptomic_df.merge(diagnosis, on = "case_id").drop_duplicates()
-train_df, test_df = train_test_split(data.iloc[:,2:].dropna(), test_size=0.1, random_state=42)
+if 'TRANSCRIPTOMIC'  == MODALITY_TESTING:
+    # for RNA-seq data
+    clinical_df = pd.read_csv(CLINICAL)
+    transcriptomic_df = pd.read_csv(TRANSCRIPTOMIC)
+    diagnosis = clinical_df[["vital_status_Dead", "case_id"]]
+    data = transcriptomic_df.merge(diagnosis, on = "case_id").drop_duplicates()
+    train_df, test_df = train_test_split(data.iloc[:,2:].dropna(), test_size=0.1, random_state=42)
+
+# TODO: correct the train test split for these modalities
+elif 'CNV'  == MODALITY_TESTING:
+    # for CNV data
+    clinical_df = pd.read_csv(CLINICAL)
+    cnv_df = pd.read_csv(CNV)
+    diagnosis = clinical_df[["vital_status_Dead", "case_id"]]
+    data = cnv_df.merge(diagnosis, on = "case_id").drop_duplicates()
+    train_df, test_df = train_test_split(data.iloc[:,2:].dropna(), test_size=0.1, random_state=42)
+
+elif 'EPIGENOMIC'  == MODALITY_TESTING:
+    # for Epigenomic data
+    clinical_df = pd.read_csv(CLINICAL)
+    epigenomic_df = pd.read_csv(EPIGENOMIC)
+    diagnosis = clinical_df[["vital_status_Dead", "case_id"]]
+    data = epigenomic_df.merge(diagnosis, on = "case_id").drop_duplicates()
+    train_df, test_df = train_test_split(data.iloc[:,2:].dropna(), test_size=0.1, random_state=42)
 
 x_train = normalize(train_df.drop('vital_status_Dead', axis = 1))
 x_test = normalize(test_df.drop('vital_status_Dead', axis = 1))
 y_train = train_df['vital_status_Dead']
 y_test = test_df['vital_status_Dead']
 
+# TODO: add the plot directory as an output
 for LATENT_DIM in LATENT_DIMS:
     ## vae
     tf.keras.backend.clear_session()
