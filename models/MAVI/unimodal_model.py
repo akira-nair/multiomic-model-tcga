@@ -3,6 +3,7 @@ import numpy as np
 import os
 import random
 import tensorflow as tf
+from PIL import Image
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense,Dropout,BatchNormalization, Flatten, Reshape
@@ -34,6 +35,24 @@ def create_model(x_train, y_train, train: bool = True, n_epochs = 50, \
         return model, history
     else:
         return model, None
+
+def create_model_image(x_train, y_train, train: bool = True, n_epochs = 50, \
+                 batch_size = None, lr = 0.001, n_hidden = 1, dim_hidden = 64, 
+                 optimizer = 'sgd', validation_set = 0.1, activation = 'sigmoid'):
+  pass
+
+def verify_images(image_directory):
+	"""verifies that the image directory has images of appropriate dimensions"""
+	img_files = os.listdir(image_directory)
+	sizes = set()
+	for img in img_files:
+		if img[-5:] == '.jpeg':
+			im = Image.open(os.path.join(image_directory, img))
+			sizes.add(im.size)
+	if len(sizes) != 1:
+		raise(f"Dimensions of images in directory are inconsistent, found sizes: {sizes}")
+	else:
+		print("Images are consistent.")
 
 def create_ae(x_train, latent_dim = 128, epochs= 10, lr=0.001):
     class Autoencoder(Model):
