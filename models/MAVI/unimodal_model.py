@@ -41,10 +41,12 @@ def create_model(x_train, y_train, train: bool = True, n_epochs = 50, \
 
 def create_model_image(x_train, y_train, image_shape, train: bool = True, n_epochs = 50, \
                  batch_size = None, lr = 0.001, n_hidden = 1, dim_hidden = 64, 
-                 optimizer = 'sgd', validation_set = 0.1, activation = 'sigmoid'):
-
-	class_weights = compute_class_weight('balanced', classes=[0, 1], y=list(y_train))
-	class_weights = {0: class_weights[0], 1: class_weights[1]}
+                 optimizer = 'sgd', validation_set = 0.1, activation = 'sigmoid', balance_class = True):
+	if balance_class:
+		class_weights = compute_class_weight('balanced', classes=[0, 1], y=list(y_train))
+		class_weights = {0: class_weights[0], 1: class_weights[1]}
+	else:
+		class_weights = None
 	y_train = to_categorical(y_train)
 	model = Sequential()
 	model.add(Conv2D(dim_hidden, (3, 3),  activation='relu', input_shape=image_shape))
@@ -59,9 +61,14 @@ def create_model_image(x_train, y_train, image_shape, train: bool = True, n_epoc
 	model.compile(optimizer = optimizer, \
 					loss = tf.keras.losses.BinaryCrossentropy(), metrics = ['accuracy'])
 	if train:
-		history = model.fit(x_train, y_train,  epochs=n_epochs, \
-							validation_split=validation_set, batch_size=batch_size,\
-							verbose=1, class_weight = class_weights)
+		if balance_class:
+			history = model.fit(x_train, y_train,  epochs=n_epochs, \
+								validation_split=validation_set, batch_size=batch_size,\
+								verbose=1, class_weight = class_weights)
+		else:
+			history = model.fit(x_train, y_train,  epochs=n_epochs, \
+								validation_split=validation_set, batch_size=batch_size,\
+								verbose=1)
 		return model, history
 	else:
 		return model, None
