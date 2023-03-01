@@ -15,12 +15,13 @@ patient tab path: path to clinical data (this can be retrieved by downloading 'c
 sample sheet path: path to sample sheet (this can be retrieved by downloading
 'sample sheet' from the cart on GDC)    
 """
-# DEFAULT EXAMPLE
+# example ** PLEASE UPDATE IN MAIN IF NOT USING SYSTEM ARGS **
 origin_path = "/users/anair27/data/TCGA_Data/project_DLBC/data_original"
 sample_sheet_path = "/users/anair27/data/TCGA_Data/project_DLBC/sample_sheet_DLBC.tsv"
 destination_path = "/users/anair27/data/TCGA_Data/project_DLBC/data_by_cases"
 
 def reorganize_data(origin_path: str, sample_sheet_path: str, destination_path: str):
+    # specify the subdirectory name for each modality of interest
     type_extension = {
         "Gene Expression Quantification": "gene_expression",
         "Gene Level Copy Number": "cnv",
@@ -90,7 +91,7 @@ def main(argv):
         destination_path = argv[2]
     else:
         # defaults
-        # DEFAULT EXAMPLE
+        # DEFAULT EXAMPLE (change to your filepath!)
         origin_path = "/users/anair27/data/TCGA_Data/project_DLBC/data_original"
         sample_sheet_path = "/users/anair27/data/TCGA_Data/project_DLBC/sample_sheet_DLBC.tsv"
         destination_path = "/users/anair27/data/TCGA_Data/project_DLBC/data_by_cases"
