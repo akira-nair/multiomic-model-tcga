@@ -9,15 +9,17 @@ Description :   Given a download and sample sheet, organize data by cases
 import pandas as pd
 import os
 import shutil
+import sys
 """
 patient tab path: path to clinical data (this can be retrieved by downloading 'clinical' data from the cart on GDC)
 sample sheet path: path to sample sheet (this can be retrieved by downloading
 'sample sheet' from the cart on GDC)    
 """
+# DEFAULT EXAMPLE
+origin_path = "/users/anair27/data/TCGA_Data/project_DLBC/data_original"
+sample_sheet_path = "/users/anair27/data/TCGA_Data/project_DLBC/sample_sheet_DLBC.tsv"
+destination_path = "/users/anair27/data/TCGA_Data/project_DLBC/data_by_cases"
 
-origin_path = ""
-sample_sheet_path = ""
-destination_path = ""
 def reorganize_data(origin_path: str, sample_sheet_path: str, destination_path: str):
     type_extension = {
         "Gene Expression Quantification": "gene_expression",
@@ -34,7 +36,7 @@ def reorganize_data(origin_path: str, sample_sheet_path: str, destination_path: 
     ## In the new directory, add folders for each case
     # Read cases
     sample_data = pd.read_csv(sample_sheet_path, sep = "\t")
-    modalities = list(type_extension.values)
+    modalities = list(type_extension.values())
     cases = get_cases(sample_data)
     print("Adding case folders.")
     for case in cases:
@@ -46,11 +48,10 @@ def reorganize_data(origin_path: str, sample_sheet_path: str, destination_path: 
         except OSError:
             print("Creation of the directory %s failed" % path)
         else:
-            count += 1
             print("Successfully created directory %s " % path)
     count = 0
     for index,row in sample_data.iterrows():
-        assoc_case = row['Case ID']
+        assoc_case = row['Case ID'].split(",")[0].strip()
         assoc_type = row['Data Type']
         assoc_file = row['File ID']
         assoc_file_name = row['File Name']
@@ -69,19 +70,33 @@ def reorganize_data(origin_path: str, sample_sheet_path: str, destination_path: 
     print(f"Moved {count} files")
 
 def get_cases(sample_data):
-    return list(set(sample_data['Case ID'].values.tolist()))
+    cases_raw = sample_data['Case ID'].values.tolist()
+    cases_processed = set()
+    for case in cases_raw:
+        cases_processed.add(case.split(",")[0].strip())
+    return list(cases_processed)
 
 def mk_modalities_folders(path, modalities):
     for modality in modalities:
-        p = os.join(path, modality)
+        p = os.path.join(path, modality)
         os.mkdir(p)
     os.mkdir(os.path.join(path, "other"))
    
 
-def main():
+def main(argv):
+    if len(argv) > 0:
+        origin_path = argv[0]
+        sample_sheet_path = argv[1]
+        destination_path = argv[2]
+    else:
+        # defaults
+        # DEFAULT EXAMPLE
+        origin_path = "/users/anair27/data/TCGA_Data/project_DLBC/data_original"
+        sample_sheet_path = "/users/anair27/data/TCGA_Data/project_DLBC/sample_sheet_DLBC.tsv"
+        destination_path = "/users/anair27/data/TCGA_Data/project_DLBC/data_by_cases"
     reorganize_data(origin_path = origin_path, sample_sheet_path = sample_sheet_path, destination_path = destination_path)
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
 # dbc = DataByCases(patient_tab_path="/users/anair27/data/anair27/data_original/clinical.tsv", sample_sheet_path="/users/anair27/data/anair27/data_original/luad_sample_sheet_09_22.tsv")
 # print("CASES:", dbc.cases)
 
