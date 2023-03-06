@@ -18,7 +18,7 @@ import seaborn as sns
 
 def create_model(x_train, y_train, train: bool = True, n_epochs = 50, \
                  batch_size = None, lr = 0.001, n_hidden = 1, dim_hidden = 64, 
-                 optimizer = 'sgd', validation_set = 0.1, activation = 'sigmoid'):
+                 optimizer = 'adam', validation_set = 0.1, activation = 'sigmoid'):
 	y_train = to_categorical(y_train)
 	model = Sequential()
 	model.add(Dense(128, input_shape = (x_train.shape[1],), activation = "relu"))
@@ -29,7 +29,8 @@ def create_model(x_train, y_train, train: bool = True, n_epochs = 50, \
 	model.add(Dense(int(dim_hidden / 4), activation = "relu"))
 	model.add(BatchNormalization())
 	model.add(Dense(2, activation = activation))
-	model.compile(optimizer = optimizer, \
+	m_optimizer = Adam(learning_rate = lr)
+	model.compile(optimizer = m_optimizer, \
 					loss = tf.keras.losses.BinaryCrossentropy(), metrics = ['accuracy'])
 	if train:
 		history = model.fit(x_train, y_train,  epochs=n_epochs, \
@@ -41,7 +42,7 @@ def create_model(x_train, y_train, train: bool = True, n_epochs = 50, \
 
 def create_model_image(x_train, y_train, image_shape = None, train: bool = True, n_epochs = 50, \
                  batch_size = None, lr = 0.001, n_hidden = 1, dim_hidden = 64, dropout = False,
-                 dropout_rate = 0.1, optimizer = 'sgd', validation_set = 0.1, activation = 'sigmoid', balance_class = True):
+                 dropout_rate = 0.1, optimizer = 'adam', validation_set = 0.1, activation = 'sigmoid', balance_class = True):
 	if balance_class:
 		class_weights = compute_class_weight('balanced', classes=[0, 1], y=list(y_train))
 		class_weights = {0: class_weights[0], 1: class_weights[1]}
@@ -64,7 +65,8 @@ def create_model_image(x_train, y_train, image_shape = None, train: bool = True,
 			model.add(Dropout(dropout_rate))
 	model.add(Flatten())
 	model.add(Dense(2, activation = activation))
-	model.compile(optimizer = optimizer, \
+	m_optimizer = Adam(learning_rate = lr)
+	model.compile(optimizer = m_optimizer, \
 					loss = tf.keras.losses.BinaryCrossentropy(), metrics = ['accuracy'])
 	if train:
 		if balance_class:

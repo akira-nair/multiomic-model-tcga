@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH -p gpu --gres=gpu:1
-#SBATCH --mem=128G
-#SBATCH -t 12:00:00
+#SBATCH --mem=64G
+#SBATCH -t 48:00:00
 #SBATCH -o hp_tuning_%j.out
 #SBATCH --mail-type=END,FAIL,TIME_LIMIT,BEGIN
 #SBATCH --mail-user=akira_nair@brown.edu
