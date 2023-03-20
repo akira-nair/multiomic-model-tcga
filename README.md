@@ -2,7 +2,7 @@
 
 This project provides a preprocessing, data organization, and modeling framework to predict the survival of cancer patients using data collected from [The Cancer Genome Atlas](https://www.cancer.gov/ccg/research/genome-sequencing/tcga). The Cancer Genome Atlas provides publicly available data through the [GDC (Genomic Data Commons) Data Portal](https://portal.gdc.cancer.gov/). 
 
-The idea of predicting survival using multiomic data extends from the paper *Integrating genomic data and pathological images to effectively predict breast cancer clinical outcome. (Dongdong Sun, Ao Li, Bo Tang, Minghui Wang).*
+The idea of predicting survival using multiomic data extends from the paper *Integrating genomic data and pathological images to effectively predict breast cancer clinical outcome. (Dongdong Sun, Ao Li, Bo Tang, Minghui Wang).* This project also expands on the work of Sally Zhi, who worked with a glioblastoma dataset from TCGA. 
 
 
 >## Table of Contents
@@ -44,5 +44,7 @@ To reorganize the data, use the script found in `data_setup/reorganize_data.py`.
 python3 -u reorganize_data.py ${1} ${2} ${3}
 ```
 ### Preprocessing modalities
+The repository contains preprocessing for the five modalities aforementioned. Details about the preprocessing can be found in Jupyter notebooks found in `preprocessing/`. Running each of the notebooks should prepare a set of csv files that joins data by case across each of the modalities. 
+After the notebooks are run, a train-test split can be created. Generally the number of cases that are used for the final analysis are reduced because some cases may lack data from one or more of the modalities. As a result, it is important to create a split once all the filtering has been completed. The notebook found in `preprocessing/training_test_split.ipynb` generates a split for the data and saves a list of training and testing case IDs. The python file `preprocessing/merging_train_test_split.py` can also be used. 
 
 ### Modeling
