@@ -133,3 +133,5 @@ __plots/
 *.out
 
 *gdc-client*
+
+*zip_folder*.sh
