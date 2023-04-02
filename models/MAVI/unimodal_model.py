@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+'''
+File        :   unimodal_model.py
+Author      :   Akira Nair
+Contact     :   akira_nair@brown.edu
+Description :   Provides functions to create
+				customizable sequential models
+				trained on one modality
+'''
+
+
 import pandas as pd
 import numpy as np
 import os
