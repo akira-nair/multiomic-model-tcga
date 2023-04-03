@@ -8,7 +8,7 @@ Description :   Creates a full multimodal model using
 '''
 
 import multimodal_model as mm
-
+import plots
 import pandas as pd
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0' 
@@ -25,6 +25,7 @@ modalities = {
 "CNV" : "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_cnv_data.csv",
 "EPIGENOMIC" : "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_epigenomic_data.csv",
 "TRANSCRIPTOMIC" : "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_transcriptomic_data.csv",
+"CLINICAL" : "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_clinical_data_no_target.csv",
 "IMAGING" : "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/imaging_data_updated"
 }
 training_cases = list(pd.read_csv("/users/anair27/data/TCGA_Data/project_LUAD/data_processed/training_cases.csv")["case_id"])
@@ -36,9 +37,9 @@ mmm = mm.MultimodalModel(modalities)
 CLINICAL = "/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_clinical_data.csv"
 clinical_df = pd.read_csv(CLINICAL, index_col = 0)
 diagnosis = clinical_df[["vital_status_Dead", "case_id"]]
-clinical_data = clinical_df.loc[:, clinical_df.columns != 'vital_status_Dead']
+# clinical_data = clinical_df.loc[:, clinical_df.columns != 'vital_status_Dead']
 
-mmm.add_modality(name = "CLINICAL", data = clinical_data)
+#mmm.add_modality(name = "CLINICAL", data = clinical_data)
 
 x_train, y_train, x_test, y_test = mmm.merge_data(y = diagnosis, train_ids = training_cases, test_ids = testing_cases, load_data = True)
 
@@ -49,3 +50,4 @@ tf.keras.utils.plot_model(model = mmm.model, to_file = os.path.join(OUTPUT, "arc
 model, history = mmm.train_model(n_epochs=20)
 model.save(os.path.join(OUTPUT, "mm_model"))
 mmm.test_model(os.path.join(OUTPUT, "testing"))
+plots.plot_convergence(history, os.path.join(OUTPUT, "convergence"))

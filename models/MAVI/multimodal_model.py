@@ -12,6 +12,8 @@ from PIL import Image
 import numpy as np
 import os
 import plots
+import argparse
+import sys
 # from tensorflow.keras.models import Sequential
 # from tensorflow.keras.utils import to_categorical
 # from tensorflow.keras.layers import Dense,Dropout,BatchNormalization, Flatten, Reshape, Conv2D, MaxPooling2D
@@ -76,22 +78,28 @@ class MultimodalModel():
     def create_model(self):
         model_inputs_layers = []
         modality_end_layers = []
-        for modality in self.modalities:
-            if modality.is_imaging:
-                input = tf.keras.layers.Input(shape = modality.image_size, name=f"{modality.name}_input_layer")
-                conv1 = tf.keras.layers.Conv2D(64, (3, 3),  activation='relu')(input)
-                pool1 = tf.keras.layers.MaxPooling2D((2,2))(conv1)
-                flatten = tf.keras.layers.Flatten()(pool1)
-                modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(flatten)
-            else:
-                # define input layer
-                input = tf.keras.layers.Input(shape=(modality.training_data.shape[1], ), name=f"{modality.name}_input_layer")
-                modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(input)
-            model_inputs_layers.append(input)
-            modality_end_layers.append(modality_end)
-        concat = tf.keras.layers.concatenate(modality_end_layers)
-        predictions = tf.keras.layers.Dense(2, activation='sigmoid', name='output')(concat)
-        self.model: tf.keras.models.Model = tf.keras.models.Model(inputs=model_inputs_layers, outputs=predictions)
+        if len(self.modalities) == 1:
+            input = tf.keras.layers.Input(shape=(modality.training_data.shape[1], ), name=f"{modality.name}_input_layer")
+            modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(input)
+            predictions = tf.keras.layers.Dense(2, activation='sigmoid', name='output')(modality_end)
+            self.model: tf.keras.models.Model = tf.keras.models.Model(inputs=input, outputs=predictions)
+        else:
+            for modality in self.modalities:
+                if modality.is_imaging:
+                    input = tf.keras.layers.Input(shape = modality.image_size, name=f"{modality.name}_input_layer")
+                    conv1 = tf.keras.layers.Conv2D(64, (3, 3),  activation='relu')(input)
+                    pool1 = tf.keras.layers.MaxPooling2D((2,2))(conv1)
+                    flatten = tf.keras.layers.Flatten()(pool1)
+                    modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(flatten)
+                else:
+                    # define input layer
+                    input = tf.keras.layers.Input(shape=(modality.training_data.shape[1], ), name=f"{modality.name}_input_layer")
+                    modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(input)
+                model_inputs_layers.append(input)
+                modality_end_layers.append(modality_end)
+            concat = tf.keras.layers.concatenate(modality_end_layers)
+            predictions = tf.keras.layers.Dense(2, activation='sigmoid', name='output')(concat)
+            self.model: tf.keras.models.Model = tf.keras.models.Model(inputs=model_inputs_layers, outputs=predictions)
         optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
         self.model.compile(optimizer = optimizer, loss = tf.keras.losses.BinaryCrossentropy(), metrics = ['accuracy'])
 
@@ -100,7 +108,7 @@ class MultimodalModel():
             raise AttributeError("Model has not been instantiated. Call create_model() first.")
         training_inputs = [m.training_data for m in self.modalities]    
         self.history: tf.keras.callbacks.History = self.model.fit(training_inputs, tf.keras.utils.to_categorical(self.y_train), epochs=n_epochs, validation_split=0.1, verbose=2)
-        return self.model, self.history.history 
+        return self.model, self.history
     
     def test_model(self, output):
         testing_inputs = [m.testing_data for m in self.modalities]
@@ -179,3 +187,32 @@ class Modality():
 
     def __str__(self) -> str:
         return self.name    
+
+def main(argv):
+    parser = argparse.ArgumentParser(description='Create a multimodal model.')
+    parser.add_argument('-m', '--modalities', nargs='+', help='a list of modalities')
+    parser.add_argument('-f', '--filepaths', nargs='+', help='a list of filepaths')
+    parser.add_argument('-o', '--output', help='an output directory')
+    args = parser.parse_args(argv)
+    print(f"Modalities {args.modalities}, Filepaths {args.filepaths}, Output {args.output}")
+    
+    output = os.path.join(args.output, f"{len(args.modalities)}-modality", '+'.join(args.modalities))
+    os.mkdir(output)
+    modality_dict = {}
+    for m, f in zip(args.modalities, args.filepaths):
+        modality_dict[m] = f
+    training_cases = list(pd.read_csv("/users/anair27/data/TCGA_Data/project_LUAD/data_processed/training_cases.csv")["case_id"])
+    testing_cases = list(pd.read_csv("/users/anair27/data/TCGA_Data/project_LUAD/data_processed/testing_cases.csv")["case_id"])
+    clinical_df = pd.read_csv("/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_clinical_data.csv", index_col = 0)
+    diagnosis = clinical_df[["vital_status_Dead", "case_id"]]
+    mmm = MultimodalModel(modality_dict)
+    x_train, y_train, x_test, y_test = mmm.merge_data(y = diagnosis, train_ids = training_cases, test_ids = testing_cases, load_data = True)
+    mmm.create_model()
+    tf.keras.utils.plot_model(model = mmm.model, to_file = os.path.join(output, "architecture.png"), show_shapes=True, show_layer_names=True, show_layer_activations=True)
+    model, history = mmm.train_model(n_epochs=10)
+    model.save(os.path.join(output, "mm_model"))
+    mmm.test_model(os.path.join(output, "testing"))
+    plots.plot_convergence(history, os.path.join(output, "convergence"))
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
