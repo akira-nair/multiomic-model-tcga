@@ -35,17 +35,17 @@ FILEPATHS=('/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_cnv_
 N=${#MODS[@]}
 
 
-for ((i=2;i<=${#mods[@]};i++)); do
-  for subset in $(compgen -A variable | grep -oP "(?<=mod)\d+" | xargs -I{} echo {\#mod\[\]} | tr ' ' '\n' | xargs -n $i echo); do
-    mod_args=()
-    path_args=()
-    for j in $subset; do
-      mod_args+=("${mods[j-1]}")
-      path_args+=("${paths[j-1]}")
-    done
-    sbatch models/MAVI/multimodal_model.sh -m "${mod_args[@]}" -f "${path_args[@]}" -o __plots/multimodal_model_"$DATE"
-  done
-done
+# for ((i=2;i<=${#mods[@]};i++)); do
+#   for subset in $(compgen -A variable | grep -oP "(?<=mod)\d+" | xargs -I{} echo {\#mod\[\]} | tr ' ' '\n' | xargs -n $i echo); do
+#     mod_args=()
+#     path_args=()
+#     for j in $subset; do
+#       mod_args+=("${mods[j-1]}")
+#       path_args+=("${paths[j-1]}")
+#     done
+#     sbatch models/MAVI/multimodal_model.sh -m "${mod_args[@]}" -f "${path_args[@]}" -o __plots/multimodal_model_"$DATE"
+#   done
+# done
 
 # Loop over all possible subsets of the list
 for ((i=0; i < 2**N; i++)); do

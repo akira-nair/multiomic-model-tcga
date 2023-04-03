@@ -14,6 +14,7 @@ import os
 import plots
 import argparse
 import sys
+from sklearn.utils import compute_class_weight
 # from tensorflow.keras.models import Sequential
 # from tensorflow.keras.utils import to_categorical
 # from tensorflow.keras.layers import Dense,Dropout,BatchNormalization, Flatten, Reshape, Conv2D, MaxPooling2D
@@ -79,6 +80,7 @@ class MultimodalModel():
         model_inputs_layers = []
         modality_end_layers = []
         if len(self.modalities) == 1:
+            modality = self.modalities[0]
             input = tf.keras.layers.Input(shape=(modality.training_data.shape[1], ), name=f"{modality.name}_input_layer")
             modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(input)
             predictions = tf.keras.layers.Dense(2, activation='sigmoid', name='output')(modality_end)
@@ -94,7 +96,8 @@ class MultimodalModel():
                 else:
                     # define input layer
                     input = tf.keras.layers.Input(shape=(modality.training_data.shape[1], ), name=f"{modality.name}_input_layer")
-                    modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(input)
+                    modality_hidden = tf.keras.layers.Dense(modality.training_data.shape[1] // 4, activation='relu', name=f"{modality.name}_hidden")(input)
+                    modality_end = tf.keras.layers.Dense(modality.training_data.shape[1] // 8, activation='relu', name=f"{modality.name}_end")(modality_hidden)
                 model_inputs_layers.append(input)
                 modality_end_layers.append(modality_end)
             concat = tf.keras.layers.concatenate(modality_end_layers)
@@ -106,8 +109,10 @@ class MultimodalModel():
     def train_model(self, n_epochs = 10):
         if self.model is None:
             raise AttributeError("Model has not been instantiated. Call create_model() first.")
-        training_inputs = [m.training_data for m in self.modalities]    
-        self.history: tf.keras.callbacks.History = self.model.fit(training_inputs, tf.keras.utils.to_categorical(self.y_train), epochs=n_epochs, validation_split=0.1, verbose=2)
+        training_inputs = [m.training_data for m in self.modalities]
+        class_weights = compute_class_weight('balanced', classes=[0, 1], y=list(self.y_train))
+        class_weights = {0: class_weights[0], 1: class_weights[1]}    
+        self.history: tf.keras.callbacks.History = self.model.fit(training_inputs, tf.keras.utils.to_categorical(self.y_train), epochs=n_epochs, validation_split=0.1, class_weight=class_weights, verbose=2)
         return self.model, self.history
     
     def test_model(self, output):
@@ -195,8 +200,10 @@ def main(argv):
     parser.add_argument('-o', '--output', help='an output directory')
     args = parser.parse_args(argv)
     print(f"Modalities {args.modalities}, Filepaths {args.filepaths}, Output {args.output}")
-    
-    output = os.path.join(args.output, f"{len(args.modalities)}-modality", '+'.join(args.modalities))
+    modality_dir = os.path.join(args.output, f"{len(args.modalities)}-modality")
+    if not os.path.exists(modality_dir):
+        os.mkdir(modality_dir)
+    output = os.path.join(modality_dir, '+'.join(args.modalities))
     os.mkdir(output)
     modality_dict = {}
     for m, f in zip(args.modalities, args.filepaths):
