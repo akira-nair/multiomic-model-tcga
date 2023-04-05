@@ -12,11 +12,11 @@ The idea of predicting survival using multiomic data extends from the paper *Int
 4. [Modeling](#modeling)
 ---
 ### Downloading a dataset
-The dataset used in this study is from [TCGA's LUAD Project](https://portal.gdc.cancer.gov/projects/TCGA-LUAD). This dataset was chosen for its relatively high number of available clinical cases for analysis (~585). It also shares the same modalities used in *Sun et. al*: **Copy Number Variation, Epigenomic, Clinical, Transcriptomic, and Imaging**. These five modalities will be used for this project's analysis. Any dataset from TCGA on the GDC data portal can be downloaded and used for a similar type of analysis. To download a dataset with these five modalities, please follow these steps.
+The dataset used in this study is from [TCGA's LUAD Project](https://portal.gdc.cancer.gov/projects/TCGA-LUAD). This dataset was chosen for its relatively high number of available clinical cases for analysis (~585). It also shares the same modalities used in *Sun et. al*: **Copy Number Variation, Epigenetic, Clinical, Transcriptomic, and Imaging**. See [here](#information-about-modalities) for descriptions of the modalities. These five modalities will be used for this project's analysis. Any dataset from TCGA on the GDC data portal can be downloaded and used for a similar type of analysis. To download a dataset with these five modalities, please follow these steps.
 1. Navigate to the [GDC data portal](https://portal.gdc.cancer.gov/repository) and select the 'Repository' tab at the top.
 2. Select a project.
 ![Image](docs/images/download_data_1.png)
-3. On the left-hand menu, under the cases tab, make sure to select a specific disease for the study if multiple are present. Under the files tab, under data type, select "Slide Image," "Copy Number Segment," "Methylation Beta Value," and "Gene Expression Quantification." These correspond to the imaging, CNV, epigenomic, and transcriptomic modalities respectively. 
+3. On the left-hand menu, under the cases tab, make sure to select a specific disease for the study if multiple are present. Under the files tab, under data type, select "Slide Image," "Copy Number Segment," "Methylation Beta Value," and "Gene Expression Quantification." These correspond to the imaging, CNV, epigenetic, and transcriptomic modalities respectively. 
 <p text-align="center">
   <img src="docs/images/download_data_2.png" width="200" height="450"/>
   <img src="docs/images/download_data_3.png" width="200" height="450" /> 
@@ -48,3 +48,11 @@ The repository contains preprocessing for the five modalities aforementioned. De
 After the notebooks are run, a train-test split can be created. Generally the number of cases that are used for the final analysis are reduced because some cases may lack data from one or more of the modalities. As a result, it is important to create a split once all the filtering has been completed. The notebook found in `preprocessing/training_test_split.ipynb` generates a split for the data and saves a list of training and testing case IDs. The python file `preprocessing/merging_train_test_split.py` can also be used. 
 
 ### Modeling
+
+
+### Information about modalities
+1. **Copy Number Variation** - Copy number variation defines varying number of repeats of genetic fragments found in a human genome. The number of repeats of specific genetic fragments influences gene expression levels and has been associated with the progression of different cancers. [Erdem et. al.](https://onlinelibrary.wiley.com/doi/10.1002/mc.22664)
+2. **Epigenetic** - Epigenetic data is collected through DNA methylation beta values. DNA methylation represents the amount of condensation of genetic regions due to the chemical alteration imposed by methyl groups. This condensation generally represses gene activity near the genetic region. 
+3. **Clinical** - Clinical data is collected for each patient, including the patient diagnosis, demographics, exposures, laboratory tests, and family relationships.
+4. **Transcriptomic** - Transcriptomic data is collected through RNA-sequencing. Levels of gene expression are recorded by detecting the amounts of transcripts found for each gene.
+5. **Imaging** - TCGA collects pathology slide images of tissues sampled from the tumor. 
