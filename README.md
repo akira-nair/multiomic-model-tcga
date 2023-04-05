@@ -10,6 +10,7 @@ The idea of predicting survival using multiomic data extends from the paper *Int
 2. [Reorganizing the data](#reorganizing-the-data)
 3. [Preprocessing modalities](#preprocessing-modalities)
 4. [Modeling](#modeling)
+5. [Supplementary Information](#information-about-modalities)
 ---
 ### Downloading a dataset
 The dataset used in this study is from [TCGA's LUAD Project](https://portal.gdc.cancer.gov/projects/TCGA-LUAD). This dataset was chosen for its relatively high number of available clinical cases for analysis (~585). It also shares the same modalities used in *Sun et. al*: **Copy Number Variation, Epigenetic, Clinical, Transcriptomic, and Imaging**. See [here](#information-about-modalities) for descriptions of the modalities. These five modalities will be used for this project's analysis. Any dataset from TCGA on the GDC data portal can be downloaded and used for a similar type of analysis. To download a dataset with these five modalities, please follow these steps.
