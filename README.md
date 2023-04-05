@@ -53,6 +53,6 @@ After the notebooks are run, a train-test split can be created. Generally the nu
 ### Information about modalities
 1. **Copy Number Variation** - Copy number variation defines varying number of repeats of genetic fragments found in a human genome. The number of repeats of specific genetic fragments influences gene expression levels and has been associated with the progression of different cancers. [Erdem et. al.](https://onlinelibrary.wiley.com/doi/10.1002/mc.22664)
 2. **Epigenetic** - Epigenetic data is collected through DNA methylation beta values. DNA methylation represents the amount of condensation of genetic regions due to the chemical alteration imposed by methyl groups. This condensation generally represses gene activity near the genetic region. 
-3. **Clinical** - Clinical data is collected for each patient, including the patient diagnosis, demographics, exposures, laboratory tests, and family relationships.
-4. **Transcriptomic** - Transcriptomic data is collected through RNA-sequencing. Levels of gene expression are recorded by detecting the amounts of transcripts found for each gene.
-5. **Imaging** - TCGA collects pathology slide images of tissues sampled from the tumor. 
+3. **Clinical** - Clinical data is collected for each patient and includes information such as the patient diagnosis, demographics, exposures, laboratory tests, and family relationships.
+4. **Transcriptomic** - Transcriptomic data is collected through RNA-sequencing. Levels of gene expression are recorded by detecting the amounts of transcripts found for each gene. These levels can be used to determine the molecular mechanisms underlying the cancer.
+5. **Imaging** - TCGA collects pathology slide images of tissues sampled from the tumor. This modality provides visual information about the malignant region and can help with diagnosis and treatment planning.
