@@ -16,15 +16,13 @@ import argparse
 import sys
 from sklearn.utils import compute_class_weight
 from sklearn import preprocessing
-# from tensorflow.keras.models import Sequential
-# from tensorflow.keras.utils import to_categorical
-# from tensorflow.keras.layers import Dense,Dropout,BatchNormalization, Flatten, Reshape, Conv2D, MaxPooling2D
 import os
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0' 
-# os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] ='false'
-# os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-# os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import tensorflow as tf
+from imblearn.over_sampling import ADASYN
+import logging
+from collections import Counter
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import SelectFromModel
 
 class MultimodalModel():
     """
@@ -43,6 +41,7 @@ class MultimodalModel():
                 raise TypeError("Modalities should be passed as either a list of strings or a dictionary with modality names corresponding to data paths.")
         if settings is not None:
             self.set_hyperparameters(settings)
+        self.settings = settings
         self.model = None
         self.attention = attention
     
@@ -61,7 +60,7 @@ class MultimodalModel():
         new_modality = Modality(name, data)
         self.modalities.append(new_modality)
 
-    def merge_data(self, y, merge_on = "case_id", target_name = "vital_status_Dead", train_ids = None, test_ids = None, load_data = False):
+    def merge_data(self, y, merge_on = "case_id", target_name = "vital_status_Dead", train_ids = None, test_ids = None, rebalance_data = False, load_data = False):
         modalities = []
         for modality in self.modalities:
             if modality.is_imaging == False:
@@ -69,21 +68,34 @@ class MultimodalModel():
         if len(modalities) == 1:
             self.merged = modalities[0].data
         else:
-            print(f"Merging {modalities[0].name} and {modalities[1].name}...")
+            logging.info(f"Merging {modalities[0].name} and {modalities[1].name}...")
             self.merged = modalities[0].data.merge(modalities[1].data, on = merge_on).drop_duplicates()
             if len(modalities) > 2:
                 for modality in modalities[2:]:
-                    print(f"Merging in {modality.name}...")
+                    logging.info(f"Merging in {modality.name}...")
                     self.merged = self.merged.merge(modality.data, on = merge_on).drop_duplicates()
-        print(f"Merging target variable data (y)...")
+        logging.info(f"Merging target variable data (y)...")
         self.merged = self.merged.merge(y, on = merge_on).drop_duplicates()
         if train_ids is not None and test_ids is not None:
             data_training = self.merged[self.merged[merge_on].isin(train_ids)]
             data_testing = self.merged[self.merged[merge_on].isin(test_ids)]
-            x_train = data_training.loc[:, self.merged.columns != "vital_status_dead"]
+            x_train = data_training.loc[:, self.merged.columns != target_name]
             x_test = data_testing.loc[:, self.merged.columns != target_name]
             self.y_train = data_training[target_name].astype(int)
             self.y_test = data_testing[target_name].astype(int)
+
+            if rebalance_data:
+                for modality in self.modalities:
+                    if modality.is_imaging:
+                        raise InterruptedError("Cannot rebalance data since images are used.")
+                
+                resampler = ADASYN(random_state=42)
+                logging.info("Rebalancing data...")
+                x_train = x_train.drop(columns = [merge_on])
+                logging.info(f'Original dataset shape had: {Counter(self.y_train)}'), 
+                x_train, self.y_train = resampler.fit_resample(x_train, self.y_train)
+                logging.info(f'Resampled dataset shape has: {Counter(self.y_train)}')
+
             if load_data:
                 for modality in self.modalities:
                     modality.load_modality_data(x_train, x_test)
@@ -116,15 +128,25 @@ class MultimodalModel():
                     modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(flatten)
                     
                 else:
+                    if modality.feature_reduction:
+                        sel = SelectFromModel(RandomForestClassifier(n_estimators = 50, random_state=42))
+                        sel.fit(modality.training_data, self.y_train)
+                        selected_feat = pd.DataFrame(modality.training_data).columns[(sel.get_support())]
+                        logging.info(f"{len(selected_feat)} features were selected for {modality.name} data using a Random Forest Classifier")
+                        modality.training_data = modality.training_data[:, sel.get_support()]
+                        modality.testing_data = modality.testing_data[:, sel.get_support()]
                     # define input layer
                     input = tf.keras.layers.Input(shape=(modality.training_data.shape[1], ), name=f"{modality.name}_input_layer")
                     norm = tf.keras.layers.BatchNormalization()(input)
-                    prev = norm
-                    for h in range(modality.num_hidden):
-                        modality_hidden = tf.keras.layers.Dense(modality.dim_hidden, activation='relu', name=f"{modality.name}_hidden_{h}")(prev)
-                        norm_modality_hidden = tf.keras.layers.BatchNormalization()(modality_hidden)
-                        prev = norm_modality_hidden
-                    modality_end = tf.keras.layers.Dense(modality.dim_end, activation='relu', name=f"{modality.name}_end")(modality_hidden)
+                    if modality.feature_reduction == False:
+                        prev = norm
+                        for h in range(modality.num_hidden):
+                            modality_hidden = tf.keras.layers.Dense(modality.dim_hidden, activation='relu', name=f"{modality.name}_hidden_{h}")(prev)
+                            norm_modality_hidden = tf.keras.layers.BatchNormalization()(modality_hidden)
+                            prev = norm_modality_hidden
+                        modality_end = tf.keras.layers.Dense(modality.dim_end, activation='relu', name=f"{modality.name}_end")(modality_hidden)
+                    else:
+                        modality_end = norm
                 model_inputs_layers.append(input)
                 modality_end_layers.append(modality_end)
             if self.attention:
@@ -151,13 +173,24 @@ class MultimodalModel():
         class_weights = compute_class_weight('balanced', classes=[0, 1], y=list(self.y_train))
         class_weights = {0: class_weights[0], 1: class_weights[1]}    
         self.history: tf.keras.callbacks.History = self.model.fit(training_inputs, tf.keras.utils.to_categorical(self.y_train),
-                                                                  batch_size=self.batch_size, epochs=self.n_epochs, validation_split=0.1, class_weight=class_weights, verbose=2)
+        batch_size=self.batch_size, epochs=self.n_epochs, validation_split=0.1, class_weight=class_weights, verbose=2)
         return self.model, self.history
     
     def test_model(self, output):
         testing_inputs = [m.testing_data for m in self.modalities]
         plots.plot_confusion(self.model, testing_inputs, self.y_test, output)
 
+    def generate_summary(self, output):
+        text = f"This is a multimodal model trained on the modalities: {self.modalities}.\n\n"
+        text += f"The model trained for {self.n_epochs} epochs, a learning rate of {self.learning_rate}, and a batch size of {self.batch_size}.\n"
+        if self.attention:
+            text += f"The model was trained with attention.\n"
+        else:
+            text += f"The model was trained without attention.\n"
+        
+        with open(output, 'w') as f:
+            f.write(text)
+            f.write(self.settings)
 
     def __str__(self) -> str:
         return f"Multimodal model with modalities {self.modalities}"
@@ -190,6 +223,7 @@ class Modality():
         self.dim_hidden = settings["dim_hidden"]
         self.num_hidden = settings["num_hidden"]
         self.dim_end = settings["dim_end"]
+        self.feature_reduction = settings["feature_reduction"]
 
     def load_modality_data(self, merged_data_train, merged_data_test):
         if self.is_imaging:
@@ -237,6 +271,8 @@ class Modality():
             self.training_data = norm.transform(merged_data_train[self.vars])
             self.testing_data = norm.transform(merged_data_test[self.vars])
 
+    
+
     def __str__(self) -> str:
         return self.name    
 
@@ -262,12 +298,20 @@ def main(argv):
     parser.add_argument('-f', '--filepaths', nargs='+', help='a list of filepaths')
     parser.add_argument('-o', '--output', help='an output directory')
     args = parser.parse_args(argv)
-    print(f"Modalities {args.modalities}, Filepaths {args.filepaths}, Output {args.output}")
+    
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
     modality_dir = os.path.join(args.output, f"{len(args.modalities)}-modality")
     if not os.path.exists(modality_dir):
         os.mkdir(modality_dir)
     output = os.path.join(modality_dir, '+'.join(args.modalities))
-    os.mkdir(output)
+    if not os.path.exists(output):
+        os.mkdir(output)
+    ### create logger
+    logger_file = os.path.join(output, "logger.log")
+    logging.basicConfig(filename=logger_file, filemode='w', encoding='utf-8', \
+        level=logging.INFO)
+    logging.info(f"Modalities {args.modalities}\nFilepaths {args.filepaths}\Output {args.output}")
     modality_dict = {}
     for m, f in zip(args.modalities, args.filepaths):
         modality_dict[m] = f
@@ -275,13 +319,52 @@ def main(argv):
     testing_cases = list(pd.read_csv("/users/anair27/data/TCGA_Data/project_LUAD/data_processed/testing_cases.csv")["case_id"])
     clinical_df = pd.read_csv("/users/anair27/data/TCGA_Data/project_LUAD/data_processed/PRCSD_clinical_data.csv", index_col = 0)
     diagnosis = clinical_df[["vital_status_Dead", "case_id"]]
-    mmm = MultimodalModel(modality_dict)
-    x_train, y_train, x_test, y_test = mmm.merge_data(y = diagnosis, train_ids = training_cases, test_ids = testing_cases, load_data = True)
+    def_hyperparameters = {
+        "learning_rate" : 0.001,
+        "n_epochs" : 40,
+        "batch_size" : 30,
+        "CNV" : {
+            "dim_hidden":512,
+            "num_hidden":3,
+            "dim_end":1024,
+            "feature_reduction":True
+        },
+        "EPIGENOMIC" : {
+            "dim_hidden":512,
+            "num_hidden":3,
+            "dim_end":1024,
+            "feature_reduction":True
+        },
+        "TRANSCRIPTOMIC" : {
+            "dim_hidden":512,
+            "num_hidden":3,
+            "dim_end":1024,
+            "feature_reduction":True
+        },
+        "CLINICAL" : {
+            "dim_hidden":16,
+            "num_hidden":2,
+            "dim_end":32,
+            "feature_reduction":False
+        },
+        "IMAGING" : {
+            "dim_hidden":16,
+            "num_hidden":2,
+            "dim_end":32
+        }}
+    logging.info("Loading data...")
+    mmm = MultimodalModel(modality_dict, settings= def_hyperparameters, attention = True)
+    x_train, y_train, x_test, y_test = mmm.merge_data(y = diagnosis, train_ids = training_cases, test_ids = testing_cases, load_data = True, rebalance_data= True)
+    logging.info("Creating model...")
     mmm.create_model()
     tf.keras.utils.plot_model(model = mmm.model, to_file = os.path.join(output, "architecture.png"), show_shapes=True, show_layer_names=True, show_layer_activations=True)
+    logging.info(f"Training model for {def_hyperparameters['n_epochs']} epochs...")
     model, history = mmm.train_model(n_epochs=10)
     model.save(os.path.join(output, "mm_model"))
+    logging.info("Testing model...")
     mmm.test_model(os.path.join(output, "testing"))
+
+    mmm.generate_summary(os.path.join(output, "summary.txt"))
     plots.plot_convergence(history, os.path.join(output, "convergence"))
 
 if __name__ == "__main__":
