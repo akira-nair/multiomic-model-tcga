@@ -15,21 +15,22 @@ import plots
 import argparse
 import sys
 from sklearn.utils import compute_class_weight
+from sklearn import preprocessing
 # from tensorflow.keras.models import Sequential
 # from tensorflow.keras.utils import to_categorical
 # from tensorflow.keras.layers import Dense,Dropout,BatchNormalization, Flatten, Reshape, Conv2D, MaxPooling2D
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0' 
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] ='false'
-os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0' 
+# os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] ='false'
+# os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
+# os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import tensorflow as tf
 
 class MultimodalModel():
     """
     Multimodal model
     """
-    def __init__(self, modalities = None) -> None:
+    def __init__(self, modalities = None, settings = None, attention = False) -> None:
         self.modalities: list[Modality] = []
         if modalities is not None:
             if isinstance(modalities, list):
@@ -40,8 +41,22 @@ class MultimodalModel():
                     self.modalities.append(Modality(name = modality, data = modalities[modality]))
             else:
                 raise TypeError("Modalities should be passed as either a list of strings or a dictionary with modality names corresponding to data paths.")
+        if settings is not None:
+            self.set_hyperparameters(settings)
         self.model = None
+        self.attention = attention
     
+    def set_hyperparameters(self, settings: dict):
+        self.n_epochs = settings["n_epochs"]
+        self.learning_rate = settings["learning_rate"]
+        self.batch_size = settings["batch_size"]
+        for modality in self.modalities:
+            modality_hyperparameters = settings[modality.name]
+            modality.set_hyperparameters(modality_hyperparameters)
+
+    def reset(self):
+        tf.keras.backend.clear_session()
+
     def add_modality(self, name, data):
         new_modality = Modality(name, data)
         self.modalities.append(new_modality)
@@ -77,6 +92,7 @@ class MultimodalModel():
             return self.merged
 
     def create_model(self):
+        del self.model
         model_inputs_layers = []
         modality_end_layers = []
         if len(self.modalities) == 1:
@@ -89,21 +105,43 @@ class MultimodalModel():
             for modality in self.modalities:
                 if modality.is_imaging:
                     input = tf.keras.layers.Input(shape = modality.image_size, name=f"{modality.name}_input_layer")
-                    conv1 = tf.keras.layers.Conv2D(64, (3, 3),  activation='relu')(input)
-                    pool1 = tf.keras.layers.MaxPooling2D((2,2))(conv1)
-                    flatten = tf.keras.layers.Flatten()(pool1)
+                    prev = input
+                    for c in range(modality.num_convs):
+                        conv1 = tf.keras.layers.Conv2D(64, (3, 3),  activation='relu')(prev)
+                        pool1 = tf.keras.layers.MaxPooling2D((2,2))(conv1)
+                        if modality.dropout:
+                            pool1 = tf.keras.layers.Dropout(0.1)(pool1)
+                        prev = pool1
+                    flatten = tf.keras.layers.Flatten()(prev)
                     modality_end = tf.keras.layers.Dense(256, activation='relu', name=f"{modality.name}_end")(flatten)
+                    
                 else:
                     # define input layer
                     input = tf.keras.layers.Input(shape=(modality.training_data.shape[1], ), name=f"{modality.name}_input_layer")
-                    modality_hidden = tf.keras.layers.Dense(modality.training_data.shape[1] // 4, activation='relu', name=f"{modality.name}_hidden")(input)
-                    modality_end = tf.keras.layers.Dense(modality.training_data.shape[1] // 8, activation='relu', name=f"{modality.name}_end")(modality_hidden)
+                    norm = tf.keras.layers.BatchNormalization()(input)
+                    prev = norm
+                    for h in range(modality.num_hidden):
+                        modality_hidden = tf.keras.layers.Dense(modality.dim_hidden, activation='relu', name=f"{modality.name}_hidden_{h}")(prev)
+                        norm_modality_hidden = tf.keras.layers.BatchNormalization()(modality_hidden)
+                        prev = norm_modality_hidden
+                    modality_end = tf.keras.layers.Dense(modality.dim_end, activation='relu', name=f"{modality.name}_end")(modality_hidden)
                 model_inputs_layers.append(input)
                 modality_end_layers.append(modality_end)
-            concat = tf.keras.layers.concatenate(modality_end_layers)
+            if self.attention:
+                attention_layers = []
+                for modality in modality_end_layers:
+                    attention_layers.append(self_attention(modality))
+                cm_attention_layers = []
+                for i in range(len(attention_layers)):
+                    for j in range(i + 1, len(attention_layers)):
+                        x, y = attention_layers[i], attention_layers[j]
+                        cm_attention_layers.append(cross_modal_attention(x, y))
+                concat = tf.keras.layers.concatenate(cm_attention_layers)
+            else:
+                concat = tf.keras.layers.concatenate(modality_end_layers)
             predictions = tf.keras.layers.Dense(2, activation='sigmoid', name='output')(concat)
             self.model: tf.keras.models.Model = tf.keras.models.Model(inputs=model_inputs_layers, outputs=predictions)
-        optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
+        optimizer = tf.keras.optimizers.Adam(learning_rate = self.learning_rate)
         self.model.compile(optimizer = optimizer, loss = tf.keras.losses.BinaryCrossentropy(), metrics = ['accuracy'])
 
     def train_model(self, n_epochs = 10):
@@ -112,7 +150,8 @@ class MultimodalModel():
         training_inputs = [m.training_data for m in self.modalities]
         class_weights = compute_class_weight('balanced', classes=[0, 1], y=list(self.y_train))
         class_weights = {0: class_weights[0], 1: class_weights[1]}    
-        self.history: tf.keras.callbacks.History = self.model.fit(training_inputs, tf.keras.utils.to_categorical(self.y_train), epochs=n_epochs, validation_split=0.1, class_weight=class_weights, verbose=2)
+        self.history: tf.keras.callbacks.History = self.model.fit(training_inputs, tf.keras.utils.to_categorical(self.y_train),
+                                                                  batch_size=self.batch_size, epochs=self.n_epochs, validation_split=0.1, class_weight=class_weights, verbose=2)
         return self.model, self.history
     
     def test_model(self, output):
@@ -144,9 +183,15 @@ class Modality():
                 self.data = self.data.rename(columns=renamed_cols)
                 self.vars = list(set(self.data.columns) - set(omit_vars))
 
+    def set_hyperparameters(self, settings: dict):
+        if self.is_imaging:
+            self.num_convs = settings["num_convs"]
+            self.dropout = settings["dropout"]
+        self.dim_hidden = settings["dim_hidden"]
+        self.num_hidden = settings["num_hidden"]
+        self.dim_end = settings["dim_end"]
+
     def load_modality_data(self, merged_data_train, merged_data_test):
-        
-        
         if self.is_imaging:
             training_cases = list(merged_data_train['case_id'])
             testing_cases = list(merged_data_test['case_id'])
@@ -187,11 +232,29 @@ class Modality():
             self.training_data = x_train
             self.testing_data = x_test
         else:
-            self.training_data = merged_data_train[self.vars]
-            self.testing_data = merged_data_test[self.vars]
+            norm = preprocessing.MinMaxScaler()
+            norm.fit(merged_data_train[self.vars])
+            self.training_data = norm.transform(merged_data_train[self.vars])
+            self.testing_data = norm.transform(merged_data_test[self.vars])
 
     def __str__(self) -> str:
         return self.name    
+
+# define attention
+def cross_modal_attention(x, y):
+    x = tf.expand_dims(x, axis=1)
+    y = tf.expand_dims(y, axis=1)
+    a1 = tf.keras.layers.MultiHeadAttention(num_heads = 4,key_dim=50)(x, y)
+    a2 = tf.keras.layers.MultiHeadAttention(num_heads = 4,key_dim=50)(y, x)
+    a1 = a1[:,0,:]
+    a2 = a2[:,0,:]
+    return tf.keras.layers.concatenate([a1, a2])
+
+def self_attention(x):
+    x = tf.expand_dims(x, axis=1)
+    attention = tf.keras.layers.MultiHeadAttention(num_heads = 4, key_dim=50)(x, x)
+    attention = attention[:,0,:]
+    return attention
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Create a multimodal model.')
