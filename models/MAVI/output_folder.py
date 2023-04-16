@@ -12,5 +12,5 @@ def create_output_folder(job_name, subdirs = ["cnv", "epigenomic", "transcriptom
     OUTPUT = os.path.join('/users/anair27/data/anair27/singh-lab-TCGA-project/multiomic-model-tcga/__plots/', f"{job_name}-{timestamp}")
     os.mkdir(OUTPUT)
     for subdir in subdirs:
-        os.mkdir(os.path.join(OUTPUT, subdir))
+        os.mkdir(os.path.join(OUTPUT, (str)(subdir)))
     return OUTPUT
