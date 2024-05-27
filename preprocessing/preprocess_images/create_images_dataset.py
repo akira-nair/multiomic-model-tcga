@@ -66,7 +66,7 @@ for i,c in enumerate(case_and_image):
     # rotate images that are vertical
     if dim_tn_y > dim_tn_x:
         thumbnail = thumbnail.transpose(method=Image.Transpose.ROTATE_90)
-    # resize image and use padding to ensure that target size is guarenteed
+    # resize image and use padding to ensure that target size is guaranteed
     resized_image = ImageOps.pad(thumbnail.resize((target_w, target_h)), size=(target_w, target_h))
     output_path = os.path.join(IMAGE_PATH, f"{c}.jpeg")
     assert resized_image.size[0] == target_w

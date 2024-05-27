@@ -26,7 +26,7 @@ model.compile(optimizer='adam',
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 
-model.fit(x_train, y_train, epochs=5)
+model.fit(tf.convert_to_tensor(x_train), tf.convert_to_tensor(y_train), epochs=5)
 
 
 

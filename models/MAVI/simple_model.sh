@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH -p gpu --gres=gpu:1
-#SBATCH --mem=64G
-#SBATCH -t 5:00:00
+#SBATCH --mem=8G
+#SBATCH -t 1:00:00
 #SBATCH -o model_tf%j.out
 #SBATCH --mail-type=END,FAIL,TIME_LIMIT,BEGIN
 #SBATCH --mail-user=akira_nair@brown.edu
